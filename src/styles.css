@@ -261,3 +261,45 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Auth & forms ---------- */
+.field-label { display: block; font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 16px 0 6px; }
+.input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--line);
+  color: var(--text); font-family: var(--body); font-size: 0.95rem;
+  padding: 12px 14px; border-radius: 10px; outline: none;
+}
+.input:focus { border-color: var(--violet); }
+.input.slim { padding: 9px 12px; }
+.err { color: var(--red); font-size: 0.83rem; margin-top: 12px; line-height: 1.5; }
+.center { text-align: center; }
+.linklike { background: none; border: none; color: var(--magenta); cursor: pointer; font-size: inherit; padding: 0; }
+.role-row { display: flex; gap: 10px; margin-top: 18px; }
+.role-btn {
+  flex: 1; background: var(--surface2); border: 1px solid var(--line); color: var(--text);
+  font-family: var(--display); font-weight: 600; padding: 13px; border-radius: 12px; cursor: pointer;
+}
+.role-btn.active { border-color: var(--violet); background: rgba(139, 92, 246, 0.14); }
+.login-pillars {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center;
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 0.74rem;
+}
+.btn.block { margin-top: 20px; }
+.center-block { display: flex; justify-content: center; padding-top: 30px; }
+.center-block .checkin-card { max-width: 430px; width: 100%; }
+
+/* ---------- Modal ---------- */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(8, 5, 20, 0.75); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+}
+.modal-back .checkin-card { max-height: 90vh; overflow-y: auto; }
+.opt-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.opt-row input[type='radio'] { accent-color: var(--violet); width: 17px; height: 17px; flex-shrink: 0; }
+.btn-row { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.toggle { display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; }
+.toggle input { accent-color: var(--violet); }
+.span2w { grid-column: span 2; }
+@media (max-width: 860px) { .span2w { grid-column: span 1; } }

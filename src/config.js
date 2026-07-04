@@ -1,0 +1,4 @@
+// Supabase credentials — ClassPulse (Team LEADERS)
+
+export const SUPABASE_URL = 'https://yjmoijmhsooivdwbuzxz.supabase.co'
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqbW9pam1oc29vaXZkd2J1enh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNzg2OTYsImV4cCI6MjA5ODc1NDY5Nn0.tFn334ui_eB9zj5_mz2DOzJ3ya6c4D7UmxAqGEQXIOA'
