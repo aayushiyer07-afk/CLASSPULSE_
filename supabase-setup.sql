@@ -131,7 +131,7 @@ begin
   end if;
 
   insert into attendance (session_id, student_id, qr_verified, ble_verified)
-  values (p_session_id, v_student, true, true)
+  values (p_session_id, v_student, true, false)
   on conflict (session_id, student_id) do nothing;
 
   return json_build_object('status','ok');

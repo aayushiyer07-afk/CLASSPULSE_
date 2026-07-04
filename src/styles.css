@@ -303,3 +303,7 @@ body {
 .toggle input { accent-color: var(--violet); }
 .span2w { grid-column: span 2; }
 @media (max-width: 860px) { .span2w { grid-column: span 1; } }
+
+/* ---------- BLE verify ---------- */
+.ble-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 6px; }
+.ble-actions .btn.block { margin-top: 8px; }

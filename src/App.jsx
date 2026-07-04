@@ -258,7 +258,7 @@ function Teacher({ profile }) {
     async function loadFeed() {
       const { data } = await supabase
         .from('attendance')
-        .select('id, checked_in_at, profiles:student_id (name, roll_number)')
+        .select('id, checked_in_at, ble_verified, profiles:student_id (name, roll_number)')
         .eq('session_id', session.id)
         .order('checked_in_at', { ascending: false })
       if (!cancelled && data) {
@@ -266,6 +266,7 @@ function Teacher({ profile }) {
           id: r.id,
           name: r.profiles?.name || 'Student',
           roll: r.profiles?.roll_number || '',
+          ble: r.ble_verified,
           at: new Date(r.checked_in_at),
         })))
       }
@@ -283,8 +284,15 @@ function Teacher({ profile }) {
             id: payload.new.id,
             name: p?.name || 'Student',
             roll: p?.roll_number || '',
+            ble: payload.new.ble_verified,
             at: new Date(payload.new.checked_in_at),
           }, ...f])
+        })
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'attendance', filter: `session_id=eq.${session.id}` },
+        (payload) => {
+          setFeed((f) => f.map((item) =>
+            item.id === payload.new.id ? { ...item, ble: payload.new.ble_verified } : item))
         })
       .subscribe()
 
@@ -368,14 +376,16 @@ function Teacher({ profile }) {
               <span className="meta-value mono">{(msLeft / 1000).toFixed(1)}s</span>
             </div>
             <div className="meta-block">
-              <span className="meta-label">Beacon</span>
-              <span className="meta-value beacon-on">📡 Broadcasting</span>
+              <span className="meta-label">Beacon name</span>
+              <span className="meta-value beacon-on mono">📡 {beaconName(session.id)}</span>
             </div>
           </div>
 
           <p className="hint">
             Students scan with their phone camera while logged in — attendance is tied to
             their verified account. Expired codes are rejected server-side.
+            For real Bluetooth verification, broadcast <span className="mono">{beaconName(session.id)}</span> from
+            a beacon app (e.g. "Beacon Simulator" on Android) or rename a Bluetooth device to it.
           </p>
           <button className="btn ghost block" onClick={endSession}>■ End session</button>
         </div>
@@ -389,7 +399,7 @@ function Teacher({ profile }) {
                 <span className="feed-avatar">{initials(f.name)}</span>
                 <div className="feed-body">
                   <span className="feed-name">{f.name} {f.roll && <span className="muted mono">· {f.roll}</span>}</span>
-                  <span className="feed-sub">QR ✓ · BLE ✓ (simulated) · {f.at.toLocaleTimeString()}</span>
+                  <span className="feed-sub">QR ✓ · {f.ble ? 'BLE ✓ real 📡' : 'BLE simulated'} · {f.at.toLocaleTimeString()}</span>
                 </div>
                 <span className="feed-check">✓</span>
               </li>
@@ -451,11 +461,17 @@ function QuizComposer({ session, onClose }) {
 
 /* ================= check-in (opened by scanning QR) ================= */
 
+export const beaconName = (sessionId) => 'CP-' + sessionId.replace(/-/g, '').slice(0, 4).toUpperCase()
+
 function CheckIn({ sessionId, code, profile }) {
   const [step, setStep] = useState(0) // 0 validating, 1 ble, 2 done, 3 expired, 4 error
   const [msg, setMsg] = useState('')
+  const [bleMsg, setBleMsg] = useState('')
+  const [bleMode, setBleMode] = useState(null) // 'ble' | 'sim'
   const [meta, setMeta] = useState(null)
   const ran = useRef(false)
+  const beacon = beaconName(sessionId)
+  const bleSupported = typeof navigator !== 'undefined' && !!navigator.bluetooth
 
   useEffect(() => {
     if (ran.current) return
@@ -464,18 +480,41 @@ function CheckIn({ sessionId, code, profile }) {
       const { data: s } = await supabase.from('sessions')
         .select('course_name, section').eq('id', sessionId).single()
       setMeta(s)
-      // small delay so the steps read naturally
-      await new Promise((r) => setTimeout(r, 700))
+      await new Promise((r) => setTimeout(r, 600))
       const { data, error } = await supabase.rpc('checkin', { p_session_id: sessionId, p_code: code })
       if (error) { setMsg(error.message); setStep(4); return }
       if (data.status === 'expired') { setStep(3); return }
       if (data.status === 'ended') { setMsg('This session has already ended.'); setStep(4); return }
       if (data.status !== 'ok') { setMsg(data.message || 'Check-in failed'); setStep(4); return }
-      setStep(1) // simulated BLE
-      await new Promise((r) => setTimeout(r, 1600))
-      setStep(2)
+      setStep(1) // BLE verification step — user action required
     })()
   }, [sessionId, code])
+
+  async function verifyBluetooth() {
+    setBleMsg('')
+    try {
+      // Web Bluetooth device picker — REAL proximity: only physically nearby
+      // devices appear in this list. Works on Chrome (Android / desktop).
+      const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true })
+      const name = (device.name || '').toUpperCase()
+      if (name.includes(beacon.toUpperCase())) {
+        await supabase.rpc('verify_ble', { p_session_id: sessionId, p_verified: true })
+        setBleMode('ble'); setStep(2)
+      } else {
+        setBleMsg(`That device ("${device.name || 'unnamed'}") isn't the classroom beacon ${beacon}. Pick the beacon from the list, or use simulate.`)
+      }
+    } catch (e) {
+      if (e.name === 'NotFoundError') setBleMsg('No device selected. Try again or use simulate.')
+      else setBleMsg('Bluetooth unavailable here — use simulate. (' + e.message + ')')
+    }
+  }
+
+  async function simulateBle() {
+    await supabase.rpc('verify_ble', { p_session_id: sessionId, p_verified: false })
+    setBleMode('sim')
+    await new Promise((r) => setTimeout(r, 900))
+    setStep(2)
+  }
 
   return (
     <div className="page center-page">
@@ -492,18 +531,43 @@ function CheckIn({ sessionId, code, profile }) {
               </li>
               <li className={step >= 1 ? (step > 1 ? 'done' : 'active') : ''}>
                 <span className="step-ico">{step > 1 ? '✓' : '📡'}</span>
-                BLE beacon proximity check <em>(simulated in web demo)</em>
+                Bluetooth proximity — beacon <span className="mono">{beacon}</span>
               </li>
               <li className={step >= 2 ? 'done' : ''}>
                 <span className="step-ico">{step >= 2 ? '✓' : '·'}</span>
-                Attendance recorded
+                Proximity verified{bleMode === 'sim' ? ' (simulated)' : bleMode === 'ble' ? ' (real BLE)' : ''}
               </li>
             </ul>
+
+            {step === 1 && (
+              <div className="ble-actions">
+                {bleSupported ? (
+                  <>
+                    <button className="btn primary block" onClick={verifyBluetooth}>
+                      📡 Verify via Bluetooth
+                    </button>
+                    <p className="hint">Opens your browser's Bluetooth picker — only devices physically
+                      in range appear. Select the classroom beacon <span className="mono">{beacon}</span>.</p>
+                  </>
+                ) : (
+                  <p className="hint">Web Bluetooth isn't available in this browser (e.g. iPhone Safari) —
+                    the native app build handles this automatically.</p>
+                )}
+                <button className="btn ghost block" onClick={simulateBle}>
+                  Skip — simulate proximity
+                </button>
+                {bleMsg && <p className="err">{bleMsg}</p>}
+              </div>
+            )}
+
             {step >= 2 && (
               <div className="success">
                 <div className="success-ring">✓</div>
                 <h3>You're marked present, {profile.name.split(' ')[0]}!</h3>
-                <p className="muted">Recorded against your account ({profile.email}).</p>
+                <p className="muted">
+                  Recorded against your account ({profile.email})
+                  {bleMode === 'ble' ? ' · proximity verified over real Bluetooth 📡' : ' · proximity simulated for this device'}
+                </p>
                 <button className="btn primary" onClick={() => go('/student')}>Open my dashboard</button>
               </div>
             )}
