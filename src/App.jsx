@@ -461,7 +461,7 @@ function QuizComposer({ session, onClose }) {
 
 /* ================= check-in (opened by scanning QR) ================= */
 
-export const beaconName = (sessionId) => 'CP-' + sessionId.replace(/-/g, '').slice(0, 4).toUpperCase()
+export const beaconName = (_sessionId) => 'CP-CLASS'
 
 function CheckIn({ sessionId, code, profile }) {
   const [step, setStep] = useState(0) // 0 validating, 1 ble, 2 done, 3 expired, 4 error
